@@ -3,6 +3,7 @@ use std::fs;
 use std::fs::{DirEntry, File};
 use std::io;
 use std::io::prelude::*;
+use std::path::Path;
 
 fn do_main() -> io::Result<()> {
     for f in fs::read_dir(".")? {
@@ -11,16 +12,20 @@ fn do_main() -> io::Result<()> {
         println!("{:?}", entry.file_type());
         println!("{:?}", entry.metadata());
         if entry.file_type()?.is_file() {
-            let mut f = File::open(entry.path())?;
-            let mut hasher = Sha256::new();
-            let mut b = Vec::new();
-            f.read_to_end(&mut b)?;
-            hasher.write_all(&b)?;
-            let result = hasher.finalize();
-            println! {"{:x}", result};
+            println!("{:?}", calc_sha256(entry.path()))
         }
     }
     Ok(())
+}
+
+fn calc_sha256<P: AsRef<Path>>(p: P) -> io::Result<String> {
+    let mut f = File::open(p)?;
+    let mut hasher = Sha256::new();
+    let mut b = Vec::new();
+    f.read_to_end(&mut b)?;
+    hasher.write_all(&b)?;
+    let result = hasher.finalize();
+    Ok(format!("{:x}", result))
 }
 
 #[derive(Debug)]
