@@ -1,6 +1,6 @@
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::fs::File;
+use std::fs::{DirEntry, File};
 use std::io;
 use std::io::prelude::*;
 
@@ -21,6 +21,26 @@ fn do_main() -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+#[derive(Debug)]
+struct FileEntry {
+    e: DirEntry,
+}
+
+impl FileEntry {
+    fn from_entry(e: DirEntry) -> io::Result<Self> {
+        if e.file_type()?.is_file() {
+            Ok(FileEntry { e })
+        } else if e.file_type()?.is_dir() {
+            Err(io::Error::new(
+                io::ErrorKind::IsADirectory,
+                "Is a directory",
+            ))
+        } else {
+            Err(io::Error::other("Not a file or directory"))
+        }
+    }
 }
 
 fn main() {
