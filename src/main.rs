@@ -18,6 +18,7 @@ fn do_main() -> io::Result<()> {
             println!("{:?}", entry.metadata());
         }
     }
+    println!("{}", FileInfo::header(","));
     Ok(())
 }
 
@@ -75,6 +76,21 @@ impl FileInfo {
         } else {
             Err(io::Error::other("Not a file or directory"))
         }
+    }
+
+    fn header(sep: &str) -> String {
+        [
+            "file_name",
+            "path",
+            "parent_dir",
+            "parent_parent",
+            "created",
+            "modified",
+            "accessed",
+            "size",
+            "sha256",
+        ]
+        .join(sep)
     }
 
     fn write_to_csvline<W: Write>(&self, paper: &mut W) -> io::Result<()> {
