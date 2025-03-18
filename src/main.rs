@@ -7,7 +7,7 @@ use std::io;
 use std::io::prelude::*;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn do_main() -> io::Result<()> {
     let mut w = BufWriter::new(io::stdout());
@@ -130,7 +130,27 @@ impl FileInfo {
         let [p, pp] = self.parent_and_parent_parent();
         let parent_dir = p.map(|pat| pat.conv_to_string()).unwrap_or("".to_string());
         let parent_parent = pp.map(|pat| pat.conv_to_string()).unwrap_or("".to_string());
-        let out = [file_name, path, parent_dir, parent_parent].join(",");
+        let size = self.meta.len.to_string();
+        let meta = &self.meta;
+        let [created, modified, accessed] = [meta.created, meta.last_modified, meta.last_accessed]
+            .map(|m| {
+                m.map_or(String::from(""), |c| {
+                    c.duration_since(UNIX_EPOCH).unwrap().as_secs().to_string()
+                })
+            });
+        let sha256 = self.sha256.clone();
+        let out = [
+            file_name,
+            path,
+            parent_dir,
+            parent_parent,
+            size,
+            created,
+            modified,
+            accessed,
+            sha256,
+        ]
+        .join(",");
         writeln!(paper, "{out}")
     }
 }
