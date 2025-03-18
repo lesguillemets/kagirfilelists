@@ -62,17 +62,21 @@ impl FileInfo {
     }
 
     fn parent_and_parent_parent(&self) -> [Option<OsString>; 2] {
-        let p = self.e.path();
-        let comps: Vec<_> = p.components().collect();
-        let l = comps.len();
-        [
-            l.checked_sub(2)
-                .and_then(|i| comps.get(i))
-                .map(|&c| c.as_os_str().to_owned()),
-            l.checked_sub(3)
-                .and_then(|i| comps.get(i))
-                .map(|&c| c.as_os_str().to_owned()),
-        ]
+        let canp = self.e.path().canonicalize();
+        if let Ok(p) = canp {
+            let comps: Vec<_> = p.components().collect();
+            let l = comps.len();
+            [
+                l.checked_sub(2)
+                    .and_then(|i| comps.get(i))
+                    .map(|&c| c.as_os_str().to_owned()),
+                l.checked_sub(3)
+                    .and_then(|i| comps.get(i))
+                    .map(|&c| c.as_os_str().to_owned()),
+            ]
+        } else {
+            [None, None]
+        }
     }
 
     pub fn header(sep: &str) -> String {
