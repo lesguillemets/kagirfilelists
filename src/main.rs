@@ -1,5 +1,5 @@
 use std::fs;
-use std::fs::DirEntry;
+use std::fs::{DirEntry, File};
 use std::io;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
@@ -25,11 +25,33 @@ struct Cli {
 }
 
 impl Cli {
-    fn try_run(&self) -> io::Result<()> {
-        let mut w = BufWriter::new(io::stdout());
-        writeln!(&mut w, "{}", FileInfo::header(","))?;
+    fn try_main(&self) -> io::Result<()> {
+        if let Some(f) = &self.output {
+            // A file is specified
+            let exists = f.try_exists();
+            if exists.is_ok() && !exists.unwrap() {
+                // confirmed not to exist
+                let file = File::create(f).expect("unable to create file!");
+                let mut w = BufWriter::new(file);
+                self.try_run(&mut w)
+            } else {
+                // specified an existing file
+                eprintln!("Warn: File exists: {f:?}");
+                unimplemented!(
+                    "-f or --force is intended to allow overwriting, but still unimplemented"
+                );
+            }
+        } else {
+            // write to stdout
+            let mut w = BufWriter::new(io::stdout());
+            self.try_run(&mut w)
+        }
+    }
+
+    fn try_run<W: Write>(&self, w: &mut W) -> io::Result<()> {
+        writeln!(w, "{}", FileInfo::header(","))?;
         let dir = &self.path.clone().unwrap_or(".".into());
-        self.read_dir(&mut w, dir)?;
+        self.read_dir(w, dir)?;
         w.flush().unwrap();
         Ok(())
     }
@@ -66,5 +88,5 @@ impl Cli {
 fn main() {
     let cli = Cli::parse();
     println!("{cli:?}");
-    cli.try_run().unwrap();
+    cli.try_main().unwrap();
 }
