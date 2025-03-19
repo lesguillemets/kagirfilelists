@@ -7,25 +7,6 @@ use clap::Parser;
 
 use kagirfilelists::FileInfo;
 
-fn do_main(dir: PathBuf) -> io::Result<()> {
-    let mut w = BufWriter::new(io::stdout());
-    for f in fs::read_dir(dir)? {
-        println!("{f:?}");
-        let entry = f?;
-        if entry.file_type()?.is_file() {
-            let fil = FileInfo::from_entry(entry);
-            println!("{:?}", fil);
-            fil.unwrap().write_csvline(&mut w).unwrap();
-        } else {
-            println!("{:?}", entry.file_type());
-            println!("{:?}", entry.metadata());
-        }
-    }
-    w.flush().unwrap();
-    println!("{}", FileInfo::header(","));
-    Ok(())
-}
-
 #[derive(Parser, Debug)]
 struct Cli {
     /// The directory to traverse
@@ -42,8 +23,37 @@ struct Cli {
     force: bool,
 }
 
+impl Cli {
+    fn try_run(&self) -> io::Result<()> {
+        let mut w = BufWriter::new(io::stdout());
+        writeln!(&mut w, "{}", FileInfo::header(","))?;
+        let dir = &self.path.clone().unwrap_or(".".into());
+        self.read_dir(&mut w, dir)?;
+        w.flush().unwrap();
+        Ok(())
+    }
+
+    fn read_dir<T: Write>(&self, w: &mut T, dir: &PathBuf) -> io::Result<()> {
+        for f in fs::read_dir(dir)? {
+            let entry = f?;
+            let ft = entry.file_type()?;
+            if ft.is_file() {
+                let fil = FileInfo::from_entry(entry);
+                fil.unwrap().write_csvline(w).unwrap();
+            } else if ft.is_dir() {
+                // go deeper
+                self.read_dir(w, &entry.path())?;
+            } else {
+                eprintln!("WARN:::: {:?}", entry.file_type());
+                eprintln!("WARN:::: {:?}", entry.metadata());
+            }
+        }
+        Ok(())
+    }
+}
+
 fn main() {
-    let args = Cli::parse();
-    println!("{args:?}");
-    do_main(args.path.unwrap_or(".".into())).unwrap();
+    let cli = Cli::parse();
+    println!("{cli:?}");
+    cli.try_run().unwrap();
 }
