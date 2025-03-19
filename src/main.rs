@@ -1,4 +1,5 @@
 use std::fs;
+use std::fs::DirEntry;
 use std::io;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
@@ -34,18 +35,28 @@ impl Cli {
     }
 
     fn read_dir<T: Write>(&self, w: &mut T, dir: &PathBuf) -> io::Result<()> {
-        for f in fs::read_dir(dir)? {
-            let entry = f?;
-            let ft = entry.file_type()?;
-            if ft.is_file() {
-                let fil = FileInfo::from_entry(entry);
-                fil.unwrap().write_csvline(w).unwrap();
-            } else if ft.is_dir() {
+        let (entries, failed): (Vec<_>, Vec<_>) = fs::read_dir(dir)?.partition(|e| e.is_ok());
+        for fail in &failed {
+            eprintln!("ERROR: {fail:?}");
+        }
+        let (files, others): (Vec<DirEntry>, Vec<DirEntry>) =
+            entries.into_iter().map(|e| e.unwrap()).partition(|e| {
+                e.file_type()
+                    .unwrap_or_else(|_| panic!("Cli::read_dir,file_type on {e:?}"))
+                    .is_file()
+            });
+        for f in files.into_iter() {
+            let fil = FileInfo::from_entry(f);
+            fil.unwrap().write_csvline(w).unwrap();
+        }
+        for other in &others {
+            let ft = other.file_type()?;
+            if ft.is_dir() {
                 // go deeper
-                self.read_dir(w, &entry.path())?;
+                self.read_dir(w, &other.path())?;
             } else {
-                eprintln!("WARN:::: {:?}", entry.file_type());
-                eprintln!("WARN:::: {:?}", entry.metadata());
+                eprintln!("WARN:::: {:?}", other.file_type());
+                eprintln!("WARN:::: {:?}", other.metadata());
             }
         }
         Ok(())
