@@ -1,4 +1,6 @@
+use chrono::{DateTime, Local};
 use sha2::{Digest, Sha256};
+
 use std::ffi::OsString;
 use std::fs::{DirEntry, File, Metadata};
 use std::io::prelude::*;
@@ -81,8 +83,8 @@ impl FileInfo {
 
     pub fn header(sep: &str) -> String {
         [
-            "file_name",
             "rel_path",
+            "file_name",
             "parent_dir",
             "parent_parent",
             "size",
@@ -91,6 +93,9 @@ impl FileInfo {
             "accessed",
             "sha256",
             "full_path",
+            "created_epoch",
+            "modified_epoch",
+            "accessed_epoch",
         ]
         .map(|f| format!("\"{f}\""))
         .join(sep)
@@ -118,6 +123,13 @@ impl FileInfo {
         let [created, modified, accessed] = [meta.created, meta.last_modified, meta.last_accessed]
             .map(|m| {
                 m.map_or(String::from(""), |c| {
+                    let dt: DateTime<Local> = c.into();
+                    format!("{}", dt.format("%Y-%m-%d %H:%M:%S"))
+                })
+            });
+        let [created_epoch, modified_epoch, accessed_epoch] =
+            [meta.created, meta.last_modified, meta.last_accessed].map(|m| {
+                m.map_or(String::from(""), |c| {
                     c.duration_since(UNIX_EPOCH).unwrap().as_secs().to_string()
                 })
             });
@@ -139,6 +151,9 @@ impl FileInfo {
                 accessed,
                 sha256,
                 full_path,
+                created_epoch,
+                modified_epoch,
+                accessed_epoch,
             ]
             .join("\",\""),
         );
