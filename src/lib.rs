@@ -96,6 +96,7 @@ impl FileInfo {
     }
 
     pub fn write_csvline<W: Write>(&self, paper: &mut W) -> io::Result<()> {
+        // TODO: we don't really handle double quotes in fields
         let file_name = self.file_name().conv_to_string();
         let path = self
             .path()
