@@ -91,6 +91,7 @@ impl FileInfo {
             "accessed",
             "sha256",
         ]
+        .map(|f| format!("\"{f}\""))
         .join(sep)
     }
 
@@ -112,18 +113,22 @@ impl FileInfo {
                 })
             });
         let sha256 = self.sha256.clone();
-        let out = [
-            file_name,
-            path,
-            parent_dir,
-            parent_parent,
-            size,
-            created,
-            modified,
-            accessed,
-            sha256,
-        ]
-        .join(",");
+        let mut out = String::from("\"");
+        out.push_str(
+            &[
+                file_name,
+                path,
+                parent_dir,
+                parent_parent,
+                size,
+                created,
+                modified,
+                accessed,
+                sha256,
+            ]
+            .join("\",\""),
+        );
+        out.push('\"');
         writeln!(paper, "{out}")
     }
 }
