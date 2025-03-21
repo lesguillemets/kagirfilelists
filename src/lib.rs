@@ -57,7 +57,7 @@ impl FileInfo {
         self.e.file_name()
     }
 
-    fn path(&self) -> io::Result<PathBuf> {
+    fn full_path(&self) -> io::Result<PathBuf> {
         self.e.path().canonicalize()
     }
 
@@ -82,7 +82,7 @@ impl FileInfo {
     pub fn header(sep: &str) -> String {
         [
             "file_name",
-            "path",
+            "rel_path",
             "parent_dir",
             "parent_parent",
             "size",
@@ -90,18 +90,26 @@ impl FileInfo {
             "modified",
             "accessed",
             "sha256",
+            "full_path",
         ]
         .map(|f| format!("\"{f}\""))
         .join(sep)
     }
 
-    pub fn write_csvline<W: Write>(&self, paper: &mut W) -> io::Result<()> {
+    pub fn write_csvline<W: Write, T: AsRef<Path>>(
+        &self,
+        paper: &mut W,
+        path_relative_to: &Option<T>,
+    ) -> io::Result<()> {
         // TODO: we don't really handle double quotes in fields
         let file_name = self.file_name().conv_to_string();
-        let path = self
-            .path()
-            .map(|v| v.conv_to_string())
-            .unwrap_or_else(|e| format!("{e:?}"));
+        let path = self.e.path();
+        let path = if let Some(p) = path_relative_to {
+            path.strip_prefix(p).unwrap_or(&path)
+        } else {
+            &path
+        }
+        .conv_to_string();
         let [p, pp] = self.parent_and_parent_parent();
         let parent_dir = p.map(|pat| pat.conv_to_string()).unwrap_or("".to_string());
         let parent_parent = pp.map(|pat| pat.conv_to_string()).unwrap_or("".to_string());
@@ -114,6 +122,10 @@ impl FileInfo {
                 })
             });
         let sha256 = self.sha256.clone();
+        let full_path = self
+            .full_path()
+            .map(|v| v.conv_to_string())
+            .unwrap_or_else(|e| format!("{e:?}"));
         let mut out = String::from("\"");
         out.push_str(
             &[
@@ -126,6 +138,7 @@ impl FileInfo {
                 modified,
                 accessed,
                 sha256,
+                full_path,
             ]
             .join("\",\""),
         );
@@ -162,6 +175,11 @@ impl ConvToString for OsString {
     }
 }
 impl ConvToString for PathBuf {
+    fn conv_to_string(self) -> String {
+        self.to_string_lossy().to_string()
+    }
+}
+impl ConvToString for &Path {
     fn conv_to_string(self) -> String {
         self.to_string_lossy().to_string()
     }

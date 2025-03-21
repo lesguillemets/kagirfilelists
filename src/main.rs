@@ -69,7 +69,7 @@ impl Cli {
             });
         for f in files.into_iter() {
             let fil = FileInfo::from_entry(f);
-            fil.unwrap().write_csvline(w).unwrap();
+            fil.unwrap().write_csvline(w, &self.path).unwrap();
         }
         for other in &others {
             let ft = other.file_type()?;
