@@ -78,7 +78,8 @@ impl Cli {
                 self.read_dir(w, &other.path())?;
             } else {
                 eprintln!("WARN:::: {:?}", other.file_type());
-                eprintln!("WARN:::: {:?}", other.metadata());
+                eprintln!("    :::: {:?}", other.metadata());
+                eprintln!("    :::: {:?}", other);
             }
         }
         Ok(())
