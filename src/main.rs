@@ -5,6 +5,7 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
 use clap::Parser;
+use rayon::prelude::*;
 
 use kagirfilelists::FileInfo;
 
@@ -73,10 +74,17 @@ impl Cli {
                     .is_file()
             });
         // For files, just add to ther result
-        for f in files.into_iter() {
-            let fil = FileInfo::from_entry(f);
-            fil.unwrap().write_csvline(w, &self.path).unwrap();
-        }
+        let lines: Vec<u8> = files
+            .into_par_iter()
+            .map(|f| {
+                let mut s: Vec<u8> = Vec::new();
+                let fil = FileInfo::from_entry(f);
+                fil.unwrap().write_csvline(&mut s, &self.path).unwrap();
+                s
+            })
+            .flat_map_iter(|v| v.into_iter())
+            .collect();
+        w.write_all(&lines).unwrap();
         // For directories, go deeper
         for other in &others {
             let ft = other.file_type()?;
