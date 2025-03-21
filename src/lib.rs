@@ -9,8 +9,10 @@ use std::io::{self, BufReader};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Metadata of a file
 #[derive(Clone, Debug)]
 pub struct FileMeta {
+    /// The size of the file in bytes
     len: u64,
     created: Option<SystemTime>,
     last_modified: Option<SystemTime>,
@@ -32,6 +34,8 @@ impl FileMeta {
     }
 }
 
+/// File information (as DirEntry), metadata, and SHA256 hash
+/// also handles generating the CSV file
 #[derive(Debug)]
 pub struct FileInfo {
     e: DirEntry,
@@ -40,6 +44,8 @@ pub struct FileInfo {
 }
 
 impl FileInfo {
+    /// Costly function to create a FileInfo from a DirEntry.
+    /// sha256 hash is calculated here
     pub fn from_entry(e: DirEntry) -> io::Result<Self> {
         if e.file_type()?.is_file() {
             let meta = FileMeta::from_metadata(&e.metadata()?);
@@ -63,11 +69,16 @@ impl FileInfo {
         self.e.path().canonicalize()
     }
 
+    /// Gives the names of its parent and grandparent directories
+    /// # Returns
+    /// [Option<OsString>; 2] ([Parent, Grandparent])
     fn parent_and_parent_parent(&self) -> [Option<OsString>; 2] {
         let canp = self.e.path().canonicalize();
         if let Ok(p) = canp {
             let comps: Vec<_> = p.components().collect();
             let l = comps.len();
+            // components because we only want the directory names
+            // and not their path
             [
                 l.checked_sub(2)
                     .and_then(|i| comps.get(i))
@@ -81,6 +92,7 @@ impl FileInfo {
         }
     }
 
+    /// Returns the header for the CSV file
     pub fn header(sep: &str) -> String {
         [
             "rel_path",
@@ -101,6 +113,11 @@ impl FileInfo {
         .join(sep)
     }
 
+    /// Given w: Write, writes the CSV line to it
+    /// # Arguments
+    /// * `paper` - (&mut W), writes here
+    /// * `path_relative_to` -  the "rel_path" field is calculated relative to this path
+    ///    (or the full path if None)
     pub fn write_csvline<W: Write, T: AsRef<Path>>(
         &self,
         paper: &mut W,
@@ -120,6 +137,7 @@ impl FileInfo {
         let parent_parent = pp.map(|pat| pat.conv_to_string()).unwrap_or("".to_string());
         let size = self.meta.len.to_string();
         let meta = &self.meta;
+        // localtime
         let [created, modified, accessed] = [meta.created, meta.last_modified, meta.last_accessed]
             .map(|m| {
                 m.map_or(String::from(""), |c| {
