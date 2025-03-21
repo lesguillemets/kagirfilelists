@@ -1,9 +1,9 @@
 use sha2::{Digest, Sha256};
 use std::ffi::OsString;
 use std::fs::{DirEntry, File, Metadata};
-use std::io;
 use std::io::prelude::*;
 use std::io::Write;
+use std::io::{self, BufReader};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -134,12 +134,20 @@ impl FileInfo {
     }
 }
 
+const SHA_BUFSIZE: usize = 65536;
+
 fn calc_sha256<P: AsRef<Path>>(p: P) -> io::Result<String> {
-    let mut f = File::open(p)?;
+    let f = File::open(p)?;
+    let mut reader = BufReader::new(f);
+    let mut buffer = [0; SHA_BUFSIZE];
     let mut hasher = Sha256::new();
-    let mut b = Vec::new();
-    f.read_to_end(&mut b)?;
-    hasher.write_all(&b)?;
+    loop {
+        let count = reader.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
     let result = hasher.finalize();
     Ok(format!("{:x}", result))
 }
