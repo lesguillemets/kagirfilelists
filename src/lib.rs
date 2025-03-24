@@ -101,6 +101,7 @@ impl FileInfo {
             "parent_dir",
             "parent_parent",
             "full_path",
+            "seen_from",
             "created_epoch",
             "modified_epoch",
         ]
@@ -149,6 +150,12 @@ impl FileInfo {
             .full_path()
             .map(|v| v.conv_to_string())
             .unwrap_or_else(|e| format!("{e:?}"));
+        let seen_from = if let Some(p) = path_relative_to {
+            let p: &Path = p.as_ref();
+            p.conv_to_string()
+        } else {
+            String::from("")
+        };
         let mut out = String::from("\"");
         out.push_str(
             &[
@@ -161,6 +168,7 @@ impl FileInfo {
                 parent_dir,
                 parent_parent,
                 full_path,
+                seen_from,
                 created_epoch,
                 modified_epoch,
             ]

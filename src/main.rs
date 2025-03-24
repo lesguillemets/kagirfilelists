@@ -58,8 +58,8 @@ impl Cli {
     /// Called by try_main, generates csv and writes to w
     fn try_run<W: Write>(&self, w: &mut W) -> io::Result<()> {
         writeln!(w, "{}", FileInfo::header(","))?;
-        let dir = &self.path.clone().unwrap_or(".".into());
-        self.read_dir(w, dir)?;
+        let dir = self.get_path();
+        self.read_dir(w, &dir)?;
         w.flush().unwrap();
         Ok(())
     }
@@ -84,7 +84,9 @@ impl Cli {
             .map(|f| {
                 let mut s: Vec<u8> = Vec::new();
                 let fil = FileInfo::from_entry(f);
-                fil.unwrap().write_csvline(&mut s, &self.path).unwrap();
+                fil.unwrap()
+                    .write_csvline(&mut s, &Some(self.get_path()))
+                    .unwrap();
                 s
             })
             .flat_map_iter(|v| v.into_iter())
@@ -104,6 +106,15 @@ impl Cli {
             }
         }
         Ok(())
+    }
+
+    /// returns the specified dir (if none, '.')
+    fn get_path(&self) -> PathBuf {
+        self.path
+            .clone()
+            .unwrap_or(".".into())
+            .canonicalize()
+            .unwrap()
     }
 }
 

@@ -28,6 +28,7 @@ kagirfilelists [OPTIONS] [DIR]
 | `parent_dir`        | 親ディレクトリの名前（あれば）．                 |
 | `parent_parent`     | 親ディレクトリの親の名前（あれば）．             |
 | `full_path`         | ファイルの絶対パス                               |
+| `seen_from`         | `DIR` 相当，相対パスがどこから見てか             |
 | `created_epoch`     | epoch からの秒数で表記したもの                   |
 | `modified_epoch`    | epoch からの秒数で表記したもの                   |
 
