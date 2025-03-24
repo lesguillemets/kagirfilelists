@@ -23,6 +23,8 @@ struct Cli {
     output: Option<PathBuf>,
     #[arg(short, long, help = "Overwrites existing file if specified")]
     force: bool,
+    #[arg(long, help = "Adds a BOM in front of the file")]
+    with_bom: bool,
 }
 
 impl Cli {
@@ -35,6 +37,9 @@ impl Cli {
                 // confirmed not to exist
                 let file = File::create(f).expect("unable to create file!");
                 let mut w = BufWriter::new(file);
+                if self.with_bom {
+                    w.write_all(&[0xef, 0xbb, 0xbf])?;
+                }
                 self.try_run(&mut w)
             } else {
                 // specified an existing file
