@@ -41,6 +41,7 @@ impl Cli {
                 if self.with_bom {
                     w.write_all(&[0xef, 0xbb, 0xbf])?;
                 }
+                eprintln!("Starting");
                 self.try_run(&mut w)
             } else {
                 // specified an existing file
@@ -61,12 +62,15 @@ impl Cli {
         writeln!(w, "{}", FileInfo::header(","))?;
         let dir = self.get_path();
         self.read_dir(w, &dir)?;
+        eprintln!("finished");
         w.flush().unwrap();
         Ok(())
     }
 
     /// Recursively reads the directory. Files, then directories
     fn read_dir<T: Write>(&self, w: &mut T, dir: &PathBuf) -> io::Result<()> {
+        eprint!("\x1B[2K\r");
+        eprint!(">> Info: reading directory {:?}", &dir);
         let (entries, failed): (Vec<_>, Vec<_>) = fs::read_dir(dir)?.partition(|e| e.is_ok());
         // not sure when this happens, so just print it
         for fail in &failed {
