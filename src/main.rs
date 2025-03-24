@@ -81,14 +81,7 @@ impl Cli {
         // For files, just add to ther result
         let lines: Vec<u8> = files
             .into_par_iter()
-            .map(|f| {
-                let mut s: Vec<u8> = Vec::new();
-                let fil = FileInfo::from_entry(f);
-                fil.unwrap()
-                    .write_csvline(&mut s, &Some(self.get_path()))
-                    .unwrap();
-                s
-            })
+            .map(|f| self.report_file_as_csv(f).unwrap())
             .flat_map_iter(|v| v.into_iter())
             .collect();
         w.write_all(&lines).unwrap();
@@ -106,6 +99,14 @@ impl Cli {
             }
         }
         Ok(())
+    }
+
+    /// read a file and report resulting csv as writable bytes
+    fn report_file_as_csv(&self, f: DirEntry) -> io::Result<Vec<u8>> {
+        let mut s: Vec<u8> = Vec::new();
+        let fil = FileInfo::from_entry(f)?;
+        fil.write_csvline(&mut s, &Some(self.get_path()))?;
+        Ok(s)
     }
 
     /// returns the specified dir (if none, '.')
