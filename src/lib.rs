@@ -159,8 +159,8 @@ impl FileInfo {
         let mut out = String::from("\"");
         out.push_str(
             &[
-                file_name,
                 path,
+                file_name,
                 size,
                 created,
                 modified,
