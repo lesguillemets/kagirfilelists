@@ -5,6 +5,7 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
 use clap::Parser;
+use rayon::iter::Either;
 use rayon::prelude::*;
 
 use kagirfilelists::FileInfo;
@@ -79,11 +80,21 @@ impl Cli {
                     .is_file()
             });
         // For files, just add to ther result
-        let lines: Vec<u8> = files
-            .into_par_iter()
-            .map(|f| self.report_file_as_csv(f).unwrap())
-            .flat_map_iter(|v| v.into_iter())
-            .collect();
+        let (oks, errs): (Vec<Vec<u8>>, Vec<(PathBuf, io::Error)>) =
+            files.into_par_iter().partition_map(|f| {
+                let path = f.path();
+                let result = self.report_file_as_csv(f);
+                if let Ok(res) = result {
+                    Either::Left(res)
+                } else {
+                    Either::Right((path, result.unwrap_err()))
+                }
+            });
+        // TODO : Just print and ignore
+        for (err_entry, er) in &errs {
+            eprintln!("ERROR in file {err_entry:?} for write_csvline, {er:?}");
+        }
+        let lines: Vec<u8> = oks.into_iter().flatten().collect();
         w.write_all(&lines).unwrap();
         // For directories, go deeper
         for other in &others {
