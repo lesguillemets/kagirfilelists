@@ -16,7 +16,6 @@ pub struct FileMeta {
     len: u64,
     created: Option<SystemTime>,
     last_modified: Option<SystemTime>,
-    last_accessed: Option<SystemTime>,
 }
 
 impl FileMeta {
@@ -24,12 +23,10 @@ impl FileMeta {
         let len = m.len();
         let created = m.created().ok();
         let last_modified = m.modified().ok();
-        let last_accessed = m.accessed().ok();
         FileMeta {
             len,
             created,
             last_modified,
-            last_accessed,
         }
     }
 }
@@ -100,14 +97,12 @@ impl FileInfo {
             "size",
             "created",
             "modified",
-            "accessed",
             "sha256",
             "parent_dir",
             "parent_parent",
             "full_path",
             "created_epoch",
             "modified_epoch",
-            "accessed_epoch",
         ]
         .map(|f| format!("\"{f}\""))
         .join(sep)
@@ -138,19 +133,17 @@ impl FileInfo {
         let size = self.meta.len.to_string();
         let meta = &self.meta;
         // localtime
-        let [created, modified, accessed] = [meta.created, meta.last_modified, meta.last_accessed]
-            .map(|m| {
-                m.map_or(String::from(""), |c| {
-                    let dt: DateTime<Local> = c.into();
-                    format!("{}", dt.format("%Y-%m-%d %H:%M:%S"))
-                })
-            });
-        let [created_epoch, modified_epoch, accessed_epoch] =
-            [meta.created, meta.last_modified, meta.last_accessed].map(|m| {
-                m.map_or(String::from(""), |c| {
-                    c.duration_since(UNIX_EPOCH).unwrap().as_secs().to_string()
-                })
-            });
+        let [created, modified] = [meta.created, meta.last_modified].map(|m| {
+            m.map_or(String::from(""), |c| {
+                let dt: DateTime<Local> = c.into();
+                format!("{}", dt.format("%Y-%m-%d %H:%M:%S"))
+            })
+        });
+        let [created_epoch, modified_epoch] = [meta.created, meta.last_modified].map(|m| {
+            m.map_or(String::from(""), |c| {
+                c.duration_since(UNIX_EPOCH).unwrap().as_secs().to_string()
+            })
+        });
         let sha256 = self.sha256.clone();
         let full_path = self
             .full_path()
@@ -164,14 +157,12 @@ impl FileInfo {
                 size,
                 created,
                 modified,
-                accessed,
                 sha256,
                 parent_dir,
                 parent_parent,
                 full_path,
                 created_epoch,
                 modified_epoch,
-                accessed_epoch,
             ]
             .join("\",\""),
         );
