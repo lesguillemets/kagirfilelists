@@ -30,7 +30,7 @@ struct Cli {
 
 impl Cli {
     /// basically the main function
-    fn try_main(&self) -> io::Result<()> {
+    fn try_main(&self) -> Result<(), Vec<(PathBuf, io::Error)>> {
         if let Some(f) = &self.output {
             // A file is specified
             let exists = f.try_exists();
@@ -39,7 +39,7 @@ impl Cli {
                 let file = File::create(f).expect("unable to create file!");
                 let mut w = BufWriter::new(file);
                 if self.with_bom {
-                    w.write_all(&[0xef, 0xbb, 0xbf])?;
+                    w.write_all(&[0xef, 0xbb, 0xbf]).expect("error writing bom");
                 }
                 eprintln!("Starting");
                 self.try_run(&mut w)
@@ -58,20 +58,30 @@ impl Cli {
     }
 
     /// Called by try_main, generates csv and writes to w
-    fn try_run<W: Write>(&self, w: &mut W) -> io::Result<()> {
-        writeln!(w, "{}", FileInfo::header(","))?;
+    fn try_run<W: Write>(&self, w: &mut W) -> Result<(), Vec<(PathBuf, io::Error)>> {
+        // early return if you encounter errors in writing the header
+        if let Err(header_error) = writeln!(w, "{}", FileInfo::header(",")) {
+            return Err(vec![("".into(), header_error)]);
+        }
         let dir = self.get_path();
-        self.read_dir(w, &dir)?;
+        let errors = self.read_dir(w, &dir);
         eprintln!("finished");
         w.flush().unwrap();
-        Ok(())
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     /// Recursively reads the directory. Files, then directories
-    fn read_dir<T: Write>(&self, w: &mut T, dir: &PathBuf) -> io::Result<()> {
+    fn read_dir<T: Write>(&self, w: &mut T, dir: &PathBuf) -> Vec<(PathBuf, io::Error)> {
+        let mut the_errors: Vec<(PathBuf, io::Error)> = vec![];
         eprint!("\x1B[2K\r");
         eprint!(">> Info: reading directory {:?}", &dir);
-        let (entries, failed): (Vec<_>, Vec<_>) = fs::read_dir(dir)?.partition(|e| e.is_ok());
+        let (entries, failed): (Vec<_>, Vec<_>) = fs::read_dir(dir)
+            .unwrap_or_else(|_| panic!("error in fs::read_dir{dir:?}"))
+            .partition(|e| e.is_ok());
         // not sure when this happens, so just print it
         for fail in &failed {
             eprintln!("ERROR: {fail:?}");
@@ -84,7 +94,7 @@ impl Cli {
                     .is_file()
             });
         // For files, just add to ther result
-        let (oks, errs): (Vec<Vec<u8>>, Vec<(PathBuf, io::Error)>) =
+        let (oks, mut errs): (Vec<Vec<u8>>, Vec<(PathBuf, io::Error)>) =
             files.into_par_iter().partition_map(|f| {
                 let path = f.path();
                 let result = self.report_file_as_csv(f);
@@ -94,18 +104,24 @@ impl Cli {
                     Either::Right((path, result.unwrap_err()))
                 }
             });
-        // TODO : Just print and ignore
+        // report errors
         for (err_entry, er) in &errs {
             eprintln!("ERROR in file {err_entry:?} for write_csvline, {er:?}");
         }
+        // and save them for later
+        the_errors.append(&mut errs);
+        // write resulting ok csv lines
         let lines: Vec<u8> = oks.into_iter().flatten().collect();
         w.write_all(&lines).unwrap();
         // For directories, go deeper
         for other in &others {
-            let ft = other.file_type()?;
+            let ft = other
+                .file_type()
+                .unwrap_or_else(|_| panic!("error in DirEntry.file_type() for {other:?}"));
             if ft.is_dir() {
                 // go deeper
-                self.read_dir(w, &other.path())?;
+                let mut direrrors = self.read_dir(w, &other.path());
+                the_errors.append(&mut direrrors);
             } else {
                 // Neither file nor directory. symlinks?
                 eprintln!("WARN:::: {:?}", other.file_type());
@@ -113,7 +129,7 @@ impl Cli {
                 eprintln!("    :::: {:?}", other);
             }
         }
-        Ok(())
+        the_errors
     }
 
     /// read a file and report resulting csv as writable bytes
