@@ -26,6 +26,8 @@ struct Cli {
     force: bool,
     #[arg(long, help = "Adds a BOM in front of the file")]
     with_bom: bool,
+    #[arg(short, long, help = "More verbose in logging")]
+    verbose: bool,
 }
 
 impl Cli {
@@ -77,8 +79,11 @@ impl Cli {
     /// Recursively reads the directory. Files, then directories
     fn read_dir<T: Write>(&self, w: &mut T, dir: &PathBuf) -> Vec<(PathBuf, io::Error)> {
         let mut the_errors: Vec<(PathBuf, io::Error)> = vec![];
-        eprint!("\x1B[2K\r");
-        eprint!(">> Info: reading directory {:?}", &dir);
+        if self.verbose {
+            eprintln!(">> Info: reading directory {:?}", &dir);
+        } else {
+            eprint!("\x1b[2K\r>> Info: reading directory {:?}", &dir);
+        }
         let (entries, failed): (Vec<_>, Vec<_>) = fs::read_dir(dir)
             .unwrap_or_else(|_| panic!("error in fs::read_dir{dir:?}"))
             .partition(|e| e.is_ok());
@@ -97,6 +102,10 @@ impl Cli {
         let (oks, mut errs): (Vec<Vec<u8>>, Vec<(PathBuf, io::Error)>) =
             files.into_par_iter().partition_map(|f| {
                 let path = f.path();
+                if self.verbose {
+                    eprint!("\x1b[2K\r");
+                    eprint!(":: >> Info: reading file {:?}", &path);
+                }
                 let result = self.report_file_as_csv(f);
                 if let Ok(res) = result {
                     Either::Left(res)
